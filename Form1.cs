@@ -5,6 +5,8 @@ using System.Windows.Forms;
 using Excel = Microsoft.Office.Interop.Excel;
 using System.Threading;
 using System.Net;
+using System.Configuration;
+using System.Collections.Specialized;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.IO;
@@ -23,6 +25,8 @@ namespace RightSignature
 
         private string api_token = "";
 
+
+
         public Form1()
         {
             InitializeComponent();
@@ -30,10 +34,17 @@ namespace RightSignature
 
         private void Form1_Load(object sender, EventArgs e)
         {
+
+            NameValueCollection settings = ConfigurationManager.AppSettings;
+            api_key = settings["api_key"];
             //Convert api_key to BASE64 encoding
             api_token = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(api_key));
 
             string URL = "";
+
+  
+
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
             templatemergefields = new Dictionary<string, string>();
  

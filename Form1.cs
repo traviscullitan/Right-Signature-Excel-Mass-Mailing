@@ -5,8 +5,6 @@ using System.Windows.Forms;
 using Excel = Microsoft.Office.Interop.Excel;
 using System.Threading;
 using System.Net;
-using System.Configuration;
-using System.Collections.Specialized;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.IO;
@@ -20,12 +18,7 @@ namespace RightSignature
 
         private static DataTable sheetData;
 
-        //YOUR API KEY HERE
-        private string api_key = "";
-
-        private string api_token = "";
-
-
+        private RightSignatureRequest rsRequest;
 
         public Form1()
         {
@@ -35,51 +28,24 @@ namespace RightSignature
         private void Form1_Load(object sender, EventArgs e)
         {
 
-            NameValueCollection settings = ConfigurationManager.AppSettings;
-            api_key = settings["api_key"];
-            //Convert api_key to BASE64 encoding
-            api_token = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(api_key));
-
-            string URL = "";
-
-  
-
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            rsRequest = new RightSignatureRequest();
 
             templatemergefields = new Dictionary<string, string>();
  
             //Get list of Templates from Right Signature
             try
-            {
-                URL = "https://api.rightsignature.com/public/v1/reusable_templates";
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(URL);
-                request.Headers.Add("authorization", "Basic " + api_token);
-                request.Method = "GET";
-
-                string jsonResponse;
-
-                using (System.IO.Stream st = request.GetResponse().GetResponseStream())
+            {  
+                dynamic templates = rsRequest.GetReusableTemplates();
+                foreach (dynamic template in templates)
                 {
-                    using (System.IO.StreamReader sr = new System.IO.StreamReader(st))
-                    {
-                        jsonResponse = sr.ReadToEnd();
-                    }
-                }
-
-                dynamic stuff = JsonConvert.DeserializeObject(jsonResponse);
-
-
-                dynamic templates = stuff["reusable_templates"];
-                foreach (dynamic t in templates)
-                {
-                    string result = t.ToString();
-                    TemplateComboBox.Items.Add((string)t.id + " ~ " + (string)t.name);
+                    string result = template.ToString();
+                    TemplateComboBox.Items.Add((string)template.id + " ~ " + (string)template.name);
                 }
 
             }
             catch (Exception my_e)
             {
-                MessageBox.Show("Unable to get list of templates from RightSignature. Exiting Program. Error: " + my_e.ToString());
+                MessageBox.Show(my_e.ToString());
                 Application.Exit();
             }
             
@@ -197,15 +163,22 @@ namespace RightSignature
                 d.Add(new JProperty("roles", roles));
 
                 JObject p1 = new JObject();
-                //p1.Add("name", "parent_1");
-                p1.Add("name", "intl_father_name");
+                p1.Add("name", "parent_1");
+                //p1.Add("name", "intl_father_name");
 
                 JObject p2 = new JObject();
-                //p2.Add("name", "parent_2");
-                p2.Add("name", "intl_mother_name");
+                p2.Add("name", "parent_2");
+                //p2.Add("name", "intl_mother_name");
+
+                JObject sgs_signer = new JObject();
+                sgs_signer.Add("name", "Sender");
+                sgs_signer.Add("signer_email", "tami.peplinski@sgs.org");
+                sgs_signer.Add("signer_name", "Jamie Tender");
+
 
                 roles.Add(p1);
                 roles.Add(p2);
+                roles.Add(sgs_signer);
 
                 JArray mf = new JArray();
                 d.Add(new JProperty("merge_field_values", mf));
@@ -376,24 +349,7 @@ namespace RightSignature
 
         private void getTemplateMergeFields(string myguid)
         {
-            string URL = "https://api.rightsignature.com/public/v1/reusable_templates/"+myguid;
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(URL);
-            request.Headers.Add("authorization", "Basic " + api_token);
-            request.Method = "GET";
-
-            string jsonResponse;
-
-            using (System.IO.Stream st = request.GetResponse().GetResponseStream())
-            {
-                using (System.IO.StreamReader sr = new System.IO.StreamReader(st))
-                {
-                    jsonResponse = sr.ReadToEnd();
-                }
-            }
-
-            dynamic stuff = JsonConvert.DeserializeObject(jsonResponse);
-
-            dynamic template = stuff["reusable_template"];
+            dynamic template = rsRequest.GetTemplateMergeFields(myguid);
         
             foreach (dynamic t in template["merge_field_components"])
             {
@@ -416,26 +372,7 @@ namespace RightSignature
         {
             try
             {
-                string URL = "https://api.rightsignature.com/public/v1/reusable_templates/" + id + "/send_document";
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(URL);
-                request.Headers.Add("authorization", "Basic " + api_token);
-                request.Method = "POST";
-                request.ContentType = "application/json";
-
-                using (var streamWriter = new StreamWriter(request.GetRequestStream()))
-                {
-                    streamWriter.Write(json);
-                    streamWriter.Flush();
-                    streamWriter.Close();
-                }
-
-                using (System.IO.Stream st = request.GetResponse().GetResponseStream())
-                {
-                    using (System.IO.StreamReader sr = new System.IO.StreamReader(st))
-                    {
-                        textBox1.AppendText(sr.ReadToEnd());
-                    }
-                }
+                textBox1.AppendText(rsRequest.SendTempate(id, json));
             }
             catch(Exception my_e)
             {
